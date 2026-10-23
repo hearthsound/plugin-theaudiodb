@@ -1,9 +1,10 @@
 # Hearthsound TheAudioDB plugin
 
-A [Hearthsound](https://github.com/hearthsound) metadata plugin backed by
-[TheAudioDB](https://www.theaudiodb.com/)'s public v1 JSON API. It compiles to
-a WebAssembly component that implements the `metadata` provider interface, so a
-Hearthsound server can show a biography and reference links for an artist.
+A [Hearthsound](https://github.com/hearthsound) metadata and artwork plugin
+backed by [TheAudioDB](https://www.theaudiodb.com/)'s public v1 JSON API. It
+compiles to a WebAssembly component that implements the `metadata` and
+`artwork` provider interfaces, so a Hearthsound server can show a biography and
+reference links for an artist, and use its portrait and album covers.
 
 The plugin needs no account and no paid key. The public test key `123` is enough
 to evaluate it; a premium key raises the request limit and the size of a search
@@ -37,8 +38,8 @@ Then validate the manifest and the component:
 hsplugin check
 ```
 
-It prints `ok: app.hearthsound.theaudiodb 0.1.0 (provides metadata)` on
-success.
+It prints `ok: app.hearthsound.theaudiodb 0.1.0 (provides metadata, artwork)`
+on success.
 
 Finally, build the archive you install on a server:
 
@@ -87,6 +88,15 @@ allows.
 - TheAudioDB is not a recording catalog: `resolve-recording` answers no matches
   and `get-release` answers not-found, so the server moves on to the next
   metadata instance in the layer order.
+- `find-artwork` answers an artist's portrait from `strArtistThumb` and an
+  album's front cover from `strAlbumThumb` (or `strAlbumThumbHQ` when the
+  standard column is empty). A subject is looked up by the instance's own id,
+  then a MusicBrainz artist or release-group id, then an artist-and-title
+  search. A search hit counts only when its title, and the artist it credits,
+  are the ones the subject names, so a remix or a namesake is never used.
+- A subject the service does not know, and a row without the picture column,
+  answer an empty image list rather than an error: the server then asks the
+  next artwork instance.
 - An unknown artist is an HTTP 200 response whose collection is `null`, not an
   error. The plugin answers "no artist" for it, and translates a 404 (an
   unrecognized key or an endpoint the shared service does not serve), a 429
@@ -101,7 +111,8 @@ allows.
 | `src/lib.rs` | The plugin: configuration, lifecycle and the metadata interface. |
 | `src/api.rs` | The HTTP transport, request paths and TheAudioDB's error statuses. |
 | `src/audiodb.rs` | Serde types for TheAudioDB's v1 JSON responses. |
-| `src/map.rs` | TheAudioDB rows to provider records: biography, identifiers and links. |
+| `src/artwork.rs` | The artwork operations: artist portraits and album covers. |
+| `src/map.rs` | TheAudioDB rows to provider records: biography, identifiers, links and images. |
 | `src/metadata.rs` | The metadata operations: artist lookup with the name-search fallback. |
 | `src/url.rs` | Base URL validation, endpoint composition and query encoding. |
 | `manifest.json` | The plugin manifest the server reads. |

@@ -22,7 +22,7 @@ use hearthsound_plugin::host::http::Response;
 use hearthsound_plugin::http;
 use hearthsound_plugin::types::ProviderError;
 
-use crate::audiodb::{Artist, ArtistsResponse};
+use crate::audiodb::{Album, AlbumsResponse, Artist, ArtistsResponse};
 use crate::url;
 
 /// Wall-clock budget for one TheAudioDB request, in milliseconds.
@@ -80,6 +80,70 @@ pub(crate) trait TheAudioDbApi {
     ///
     /// Returns the provider error of a request that failed.
     fn search_artists(&self, name: &str) -> Result<Vec<Artist>, ProviderError>;
+
+    /// Returns the artist with a TheAudioDB id.
+    ///
+    /// # Parameters
+    ///
+    /// - `id`: the TheAudioDB artist id.
+    ///
+    /// # Returns
+    ///
+    /// The matching rows, or an empty list when the service knows no such
+    /// artist.
+    ///
+    /// # Errors
+    ///
+    /// Returns the provider error of a request that failed.
+    fn artist_by_id(&self, id: &str) -> Result<Vec<Artist>, ProviderError>;
+
+    /// Returns the album with a MusicBrainz release group id.
+    ///
+    /// # Parameters
+    ///
+    /// - `mbid`: the MusicBrainz release group id.
+    ///
+    /// # Returns
+    ///
+    /// The matching rows, or an empty list when the service knows no such
+    /// album.
+    ///
+    /// # Errors
+    ///
+    /// Returns the provider error of a request that failed.
+    fn album_by_release_group(&self, mbid: &str) -> Result<Vec<Album>, ProviderError>;
+
+    /// Returns the album with a TheAudioDB id.
+    ///
+    /// # Parameters
+    ///
+    /// - `id`: the TheAudioDB album id.
+    ///
+    /// # Returns
+    ///
+    /// The matching rows, or an empty list when the service knows no such
+    /// album.
+    ///
+    /// # Errors
+    ///
+    /// Returns the provider error of a request that failed.
+    fn album_by_id(&self, id: &str) -> Result<Vec<Album>, ProviderError>;
+
+    /// Searches albums by artist and title.
+    ///
+    /// # Parameters
+    ///
+    /// - `artist`: the album artist.
+    /// - `album`: the album title.
+    ///
+    /// # Returns
+    ///
+    /// The rows the search answered with, most relevant first.
+    ///
+    /// # Errors
+    ///
+    /// Returns the provider error of a request that failed.
+    fn search_albums(&self, artist: &str, album: &str) -> Result<Vec<Album>, ProviderError>;
 }
 
 /// The production implementation, over the instance's base URL and API key.
@@ -120,6 +184,38 @@ impl TheAudioDbApi for HttpApi {
 
         Ok(response.into_artists())
     }
+
+    fn artist_by_id(&self, id: &str) -> Result<Vec<Artist>, ProviderError> {
+        let response: ArtistsResponse = get_json(&self.base_url, &self.api_key, &artist_path(id))?;
+
+        Ok(response.into_artists())
+    }
+
+    fn album_by_release_group(&self, mbid: &str) -> Result<Vec<Album>, ProviderError> {
+        let response: AlbumsResponse = get_json(
+            &self.base_url,
+            &self.api_key,
+            &album_release_group_path(mbid),
+        )?;
+
+        Ok(response.into_albums())
+    }
+
+    fn album_by_id(&self, id: &str) -> Result<Vec<Album>, ProviderError> {
+        let response: AlbumsResponse = get_json(&self.base_url, &self.api_key, &album_path(id))?;
+
+        Ok(response.into_albums())
+    }
+
+    fn search_albums(&self, artist: &str, album: &str) -> Result<Vec<Album>, ProviderError> {
+        let response: AlbumsResponse = get_json(
+            &self.base_url,
+            &self.api_key,
+            &album_search_path(artist, album),
+        )?;
+
+        Ok(response.into_albums())
+    }
 }
 
 /// Builds the path of an artist lookup by MusicBrainz id.
@@ -159,6 +255,89 @@ pub(crate) fn artist_mbid_path(mbid: &str) -> String {
 /// ```
 pub(crate) fn artist_search_path(name: &str) -> String {
     format!("search.php?s={}", url::encode_component(name.trim()))
+}
+
+/// Builds the path of an artist lookup by TheAudioDB id.
+///
+/// # Parameters
+///
+/// - `id`: the TheAudioDB artist id.
+///
+/// # Returns
+///
+/// `artist.php?i=<encoded id>`.
+///
+/// # Example
+///
+/// ```text
+/// artist_path("111239") -> "artist.php?i=111239"
+/// ```
+pub(crate) fn artist_path(id: &str) -> String {
+    format!("artist.php?i={}", url::encode_component(id.trim()))
+}
+
+/// Builds the path of an album lookup by MusicBrainz release group id.
+///
+/// # Parameters
+///
+/// - `mbid`: the MusicBrainz release group id.
+///
+/// # Returns
+///
+/// `album-mb.php?i=<encoded id>`.
+///
+/// # Example
+///
+/// ```text
+/// album_release_group_path("1dc4c347-a1db-32aa-b14f-bc9cc507b843")
+///   -> "album-mb.php?i=1dc4c347-a1db-32aa-b14f-bc9cc507b843"
+/// ```
+pub(crate) fn album_release_group_path(mbid: &str) -> String {
+    format!("album-mb.php?i={}", url::encode_component(mbid.trim()))
+}
+
+/// Builds the path of an album lookup by TheAudioDB id.
+///
+/// # Parameters
+///
+/// - `id`: the TheAudioDB album id.
+///
+/// # Returns
+///
+/// `album.php?m=<encoded id>`.
+///
+/// # Example
+///
+/// ```text
+/// album_path("2115888") -> "album.php?m=2115888"
+/// ```
+pub(crate) fn album_path(id: &str) -> String {
+    format!("album.php?m={}", url::encode_component(id.trim()))
+}
+
+/// Builds the path of an album search.
+///
+/// # Parameters
+///
+/// - `artist`: the album artist.
+/// - `album`: the album title.
+///
+/// # Returns
+///
+/// `searchalbum.php?s=<encoded artist>&a=<encoded title>`.
+///
+/// # Example
+///
+/// ```text
+/// album_search_path("Daft Punk", "Homework")
+///   -> "searchalbum.php?s=Daft%20Punk&a=Homework"
+/// ```
+pub(crate) fn album_search_path(artist: &str, album: &str) -> String {
+    format!(
+        "searchalbum.php?s={}&a={}",
+        url::encode_component(artist.trim()),
+        url::encode_component(album.trim())
+    )
 }
 
 /// Sends a GET request to an endpoint and decodes the JSON body.
@@ -341,6 +520,27 @@ mod tests {
             "artist-mb.php?i=cc197bad-dc9c-440d-a5b5-d52ba2e14234"
         );
         assert_eq!(artist_search_path("Daft Punk"), "search.php?s=Daft%20Punk");
+        assert_eq!(artist_path("111239"), "artist.php?i=111239");
+        assert_eq!(
+            album_release_group_path("1dc4c347-a1db-32aa-b14f-bc9cc507b843"),
+            "album-mb.php?i=1dc4c347-a1db-32aa-b14f-bc9cc507b843"
+        );
+        assert_eq!(album_path("2115888"), "album.php?m=2115888");
+        assert_eq!(
+            album_search_path("Daft Punk", "Homework"),
+            "searchalbum.php?s=Daft%20Punk&a=Homework"
+        );
+    }
+
+    #[test]
+    fn decodes_an_album_response() {
+        let decoded: AlbumsResponse = decode(
+            &response(200, &[], include_str!("fixtures/album_mb.json")),
+            "https://x",
+        )
+        .unwrap();
+
+        assert_eq!(decoded.into_albums().len(), 1);
     }
 
     #[test]

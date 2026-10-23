@@ -1,0 +1,24 @@
+{
+  "album": [
+    {
+      "idAlbum": "2107571",
+      "idArtist": "112024",
+      "strAlbum": "Homework",
+      "strArtist": "Daft Punk",
+      "intYearReleased": "1997",
+      "strAlbumThumb": "https://www.theaudiodb.com/images/media/album/thumb/homework.jpg",
+      "strAlbumThumbHQ": "https://www.theaudiodb.com/images/media/album/thumb/homework-hq.jpg",
+      "strMusicBrainzID": "2db1b1a4-6f0e-3f8e-9f4c-2c9d5f3f8a11"
+    },
+    {
+      "idAlbum": "2107572",
+      "idArtist": "112024",
+      "strAlbum": "Homework (Remixes)",
+      "strArtist": "Daft Punk",
+      "intYearReleased": "1997",
+      "strAlbumThumb": "https://www.theaudiodb.com/images/media/album/thumb/homework-remixes.jpg",
+      "strAlbumThumbHQ": null,
+      "strMusicBrainzID": null
+    }
+  ]
+}

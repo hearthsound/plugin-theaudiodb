@@ -10,18 +10,21 @@
 //! Facebook and Twitter columns have no matching link kind, so they are not
 //! reported; the remaining social and reference columns are.
 
-use hearthsound_plugin::metadata_provider::exports::hearthsound::plugin::metadata::{
+use hearthsound_plugin::metadata_artwork_provider::exports::hearthsound::plugin::metadata::{
     ArtistInfo, ArtistLink,
 };
-use hearthsound_plugin::types::IdPair;
+use hearthsound_plugin::types::{IdPair, Image};
 
 use crate::{audiodb, url};
 
 /// Id namespace of a MusicBrainz artist.
 pub const NS_ARTIST: &str = "mb-artist";
 
-/// Id namespace of a TheAudioDB artist.
+/// Id namespace of a TheAudioDB artist or album.
 pub const NS_AUDIODB: &str = "theaudiodb";
+
+/// Id namespace of a MusicBrainz release group.
+pub const NS_RELEASE_GROUP: &str = "mb-release-group";
 
 /// Returns an id pair in one namespace.
 ///
@@ -152,6 +155,80 @@ pub fn artist_links(artist: &audiodb::Artist) -> Vec<ArtistLink> {
     );
 
     links
+}
+
+/// Returns the value of an identifier in one namespace.
+///
+/// # Parameters
+///
+/// - `ids`: the identifiers to read.
+/// - `namespace`: the namespace to look for.
+///
+/// # Returns
+///
+/// The trimmed value of the first identifier in that namespace, or `None` when
+/// there is none or it is blank.
+///
+/// # Example
+///
+/// ```text
+/// id_value(&[("mb-artist", "cc197bad-..."), ("theaudiodb", "111239")], "theaudiodb") -> Some("111239")
+/// ```
+pub(crate) fn id_value<'a>(ids: &'a [IdPair], namespace: &str) -> Option<&'a str> {
+    ids.iter()
+        .find(|pair| pair.namespace == namespace)
+        .map(|pair| pair.value.trim())
+        .filter(|value| !value.is_empty())
+}
+
+/// Builds the portrait renditions of an artist row.
+///
+/// # Parameters
+///
+/// - `artist`: the artist row.
+///
+/// # Returns
+///
+/// One image for the row's portrait, or an empty list when the row has no
+/// portrait. TheAudioDB reports one portrait size per row, so the image carries
+/// no width or height.
+pub fn artist_images(artist: &audiodb::Artist) -> Vec<Image> {
+    image(artist.thumb())
+}
+
+/// Builds the cover renditions of an album row.
+///
+/// # Parameters
+///
+/// - `album`: the album row.
+///
+/// # Returns
+///
+/// One image for the row's front cover, or an empty list when the row has no
+/// cover. TheAudioDB reports one cover size per row, so the image carries no
+/// width or height.
+pub fn album_images(album: &audiodb::Album) -> Vec<Image> {
+    image(album.thumb())
+}
+
+/// Builds a one-image list from an optional URL.
+///
+/// # Parameters
+///
+/// - `url`: the image URL, or `None` when the row has no picture.
+///
+/// # Returns
+///
+/// One image without dimensions, or an empty list.
+fn image(url: Option<&str>) -> Vec<Image> {
+    url.map(|url| {
+        vec![Image {
+            url: url.to_string(),
+            width: None,
+            height: None,
+        }]
+    })
+    .unwrap_or_default()
 }
 
 /// Returns whether two names spell the same text.

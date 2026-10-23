@@ -141,6 +141,98 @@ impl ArtistsResponse {
     }
 }
 
+/// One album row.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Album {
+    /// TheAudioDB's own album id.
+    #[serde(default, rename = "idAlbum", deserialize_with = "text")]
+    pub id_album: Option<String>,
+    /// The album title.
+    #[serde(default, rename = "strAlbum", deserialize_with = "text")]
+    pub str_album: Option<String>,
+    /// The album artist.
+    #[serde(default, rename = "strArtist", deserialize_with = "text")]
+    pub str_artist: Option<String>,
+    /// The MusicBrainz release group id.
+    #[serde(default, rename = "strMusicBrainzID", deserialize_with = "text")]
+    pub str_music_brainz_id: Option<String>,
+    /// The front cover thumbnail.
+    #[serde(default, rename = "strAlbumThumb", deserialize_with = "text")]
+    pub str_album_thumb: Option<String>,
+    /// The high-quality front cover thumbnail.
+    #[serde(default, rename = "strAlbumThumbHQ", deserialize_with = "text")]
+    pub str_album_thumb_hq: Option<String>,
+}
+
+impl Album {
+    /// Returns the TheAudioDB album id, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The id, or `None` when it is absent or blank.
+    pub fn provider_id(&self) -> Option<&str> {
+        non_blank(self.id_album.as_deref())
+    }
+
+    /// Returns the album title, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The title, or `None` when it is absent or blank.
+    pub fn title(&self) -> Option<&str> {
+        non_blank(self.str_album.as_deref())
+    }
+
+    /// Returns the album artist, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The artist name, or `None` when it is absent or blank.
+    pub fn artist(&self) -> Option<&str> {
+        non_blank(self.str_artist.as_deref())
+    }
+
+    /// Returns the MusicBrainz release group id, trimmed, when the row carries
+    /// one.
+    ///
+    /// # Returns
+    ///
+    /// The id, or `None` when it is absent or blank.
+    pub fn release_group_id(&self) -> Option<&str> {
+        non_blank(self.str_music_brainz_id.as_deref())
+    }
+
+    /// Returns the album cover URL, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The standard thumbnail, or the high-quality one when the standard is
+    /// absent, or `None` when the row has neither.
+    pub fn thumb(&self) -> Option<&str> {
+        non_blank(self.str_album_thumb.as_deref())
+            .or_else(|| non_blank(self.str_album_thumb_hq.as_deref()))
+    }
+}
+
+/// The response of every album endpoint.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct AlbumsResponse {
+    /// The matching albums, or `null` when the service knows none.
+    #[serde(default)]
+    pub album: Option<Vec<Album>>,
+}
+
+impl AlbumsResponse {
+    /// Returns the rows the response carries.
+    ///
+    /// # Returns
+    ///
+    /// The rows, or an empty list when the response carried `null`.
+    pub fn into_albums(self) -> Vec<Album> {
+        self.album.unwrap_or_default()
+    }
+}
+
 /// Deserializes a legacy scalar that may be a string, a number, or null.
 ///
 /// # Parameters
@@ -250,5 +342,47 @@ mod tests {
 
         assert_eq!(artists[0].name(), None);
         assert_eq!(artists[0].str_wikipedia_id.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn reads_an_album_lookup() {
+        let response: AlbumsResponse =
+            serde_json::from_str(include_str!("fixtures/album_mb.json")).unwrap();
+        let albums = response.into_albums();
+
+        assert_eq!(albums.len(), 1);
+        let album = &albums[0];
+        assert_eq!(album.provider_id(), Some("2115888"));
+        assert_eq!(album.title(), Some("Echoes of Silence"));
+        assert_eq!(album.artist(), Some("The Weeknd"));
+        assert_eq!(
+            album.release_group_id(),
+            Some("1dc4c347-a1db-32aa-b14f-bc9cc507b843")
+        );
+        assert_eq!(
+            album.thumb(),
+            Some("https://www.theaudiodb.com/images/media/album/thumb/xwvwvp1342551819.jpg")
+        );
+    }
+
+    #[test]
+    fn reads_an_empty_album_response() {
+        let response: AlbumsResponse =
+            serde_json::from_str(include_str!("fixtures/album_none.json")).unwrap();
+
+        assert!(response.into_albums().is_empty());
+    }
+
+    #[test]
+    fn a_missing_thumbnail_falls_back_to_the_high_quality_one() {
+        let response: AlbumsResponse = serde_json::from_str(
+            r#"{"album":[{"strAlbum":"Only HQ","strAlbumThumb":null,"strAlbumThumbHQ":"https://x.example/hq.jpg"}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            response.into_albums()[0].thumb(),
+            Some("https://x.example/hq.jpg")
+        );
     }
 }

@@ -1,14 +1,14 @@
 {
   "manifestVersion": 1,
   "id": "app.hearthsound.theaudiodb",
-  "name": "TheAudioDB metadata",
+  "name": "TheAudioDB metadata and artwork",
   "version": "0.1.0",
-  "description": "Read artist biographies and web links from TheAudioDB, without an account or a paid API key.",
+  "description": "Read artist biographies, reference links, artist portraits and album covers from TheAudioDB, without an account or a paid API key.",
   "authors": ["Hearthsound contributors"],
   "license": "MIT OR Apache-2.0",
   "homepage": "https://github.com/hearthsound/plugin-theaudiodb",
   "api": "hearthsound:plugin@0.3.0",
-  "provides": ["metadata"],
+  "provides": ["metadata", "artwork"],
   "permissions": {
     "http": {
       "hosts": ["www.theaudiodb.com", "r2.theaudiodb.com", "$config:baseUrl"],

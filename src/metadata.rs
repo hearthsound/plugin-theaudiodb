@@ -12,7 +12,7 @@
 //! name (or the row's alternate name) the same way, so a namesake or a tribute
 //! act is never mistaken for the artist the server asked about.
 
-use hearthsound_plugin::metadata_provider::exports::hearthsound::plugin::metadata::{
+use hearthsound_plugin::metadata_artwork_provider::exports::hearthsound::plugin::metadata::{
     ArtistInfo, ArtistInfoRequest, RecordingHint, RecordingMatch,
 };
 use hearthsound_plugin::types::{Album, IdPair, ProviderError};
@@ -41,7 +41,7 @@ pub(crate) fn artist_info(
     api: &dyn TheAudioDbApi,
     request: &ArtistInfoRequest,
 ) -> Result<Option<ArtistInfo>, ProviderError> {
-    if let Some(mbid) = id_value(&request.ids, map::NS_ARTIST) {
+    if let Some(mbid) = map::id_value(&request.ids, map::NS_ARTIST) {
         let artists = api.artist_by_mbid(mbid)?;
 
         if let Some(artist) = artists.first() {
@@ -90,24 +90,6 @@ pub(crate) fn select_artist<'a>(
                 .alternate_name()
                 .is_some_and(|value| map::same_text(value, name))
     })
-}
-
-/// Returns the value of an identifier in one namespace.
-///
-/// # Parameters
-///
-/// - `ids`: the identifiers the request carries.
-/// - `namespace`: the namespace to look for.
-///
-/// # Returns
-///
-/// The trimmed value of the first identifier in that namespace, or `None` when
-/// there is none or it is blank.
-fn id_value<'a>(ids: &'a [IdPair], namespace: &str) -> Option<&'a str> {
-    ids.iter()
-        .find(|pair| pair.namespace == namespace)
-        .map(|pair| pair.value.trim())
-        .filter(|value| !value.is_empty())
 }
 
 /// Resolves a recording hint to recordings.
@@ -195,6 +177,29 @@ mod tests {
             self.record(format!("search:{name}"));
 
             Ok(self.search.clone())
+        }
+
+        fn artist_by_id(&self, _id: &str) -> Result<Vec<audiodb::Artist>, ProviderError> {
+            Ok(Vec::new())
+        }
+
+        fn album_by_release_group(
+            &self,
+            _mbid: &str,
+        ) -> Result<Vec<audiodb::Album>, ProviderError> {
+            Ok(Vec::new())
+        }
+
+        fn album_by_id(&self, _id: &str) -> Result<Vec<audiodb::Album>, ProviderError> {
+            Ok(Vec::new())
+        }
+
+        fn search_albums(
+            &self,
+            _artist: &str,
+            _album: &str,
+        ) -> Result<Vec<audiodb::Album>, ProviderError> {
+            Ok(Vec::new())
         }
     }
 

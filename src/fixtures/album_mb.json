@@ -1,0 +1,29 @@
+{
+  "album": [
+    {
+      "idAlbum": "2115888",
+      "idArtist": "112024",
+      "idLabel": "47129",
+      "strAlbum": "Echoes of Silence",
+      "strAlbumStripped": "Echoes of Silence",
+      "strArtist": "The Weeknd",
+      "strArtistStripped": "The Weeknd",
+      "intYearReleased": "2011",
+      "strStyle": "Urban/R&B",
+      "strGenre": "R&B",
+      "strLabel": "Republic Records",
+      "strReleaseFormat": "Album",
+      "intSales": "0",
+      "strAlbumThumb": "https://www.theaudiodb.com/images/media/album/thumb/xwvwvp1342551819.jpg",
+      "strAlbumThumbHQ": null,
+      "strAlbumThumbBack": null,
+      "strAlbumCDart": null,
+      "strAlbumSpine": null,
+      "strDescriptionEN": "Echoes of Silence is the third mixtape by Canadian artist The Weeknd, released December 21, 2011.",
+      "strMusicBrainzID": "1dc4c347-a1db-32aa-b14f-bc9cc507b843",
+      "strMusicBrainzArtistID": "c8b03190-306c-4120-bb0b-6f2ebfc06ea9",
+      "strDiscogsID": "399750",
+      "strLocked": "unlocked"
+    }
+  ]
+}

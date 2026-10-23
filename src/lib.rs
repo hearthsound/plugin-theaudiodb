@@ -1,10 +1,11 @@
-//! TheAudioDB plugin: a Hearthsound metadata provider over TheAudioDB's public
-//! v1 JSON API.
+//! TheAudioDB plugin: a Hearthsound metadata and artwork provider over
+//! TheAudioDB's public v1 JSON API.
 //!
 //! The plugin needs no account, and the public test key `123` is enough to
 //! evaluate it; a premium key only raises the request limit and the size of a
 //! result page. It implements `lifecycle` (configuration validation and a
-//! health probe) and `metadata` (artist information).
+//! health probe), `metadata` (artist information) and `artwork` (artist
+//! portraits and album covers).
 //!
 //! `get-artist-info` looks the artist up by the MusicBrainz id the server holds
 //! and falls back to an artist-name search when that id finds nothing. It
@@ -12,7 +13,9 @@
 //! (homepage, Wikipedia, Wikidata, Last.fm, Discogs, AllMusic). TheAudioDB has
 //! no recording index, so `resolve-recording` answers no matches and
 //! `get-release` answers not-found, which lets the server ask the next
-//! metadata instance.
+//! metadata instance. `find-artwork` answers an artist's portrait and an
+//! album's front cover, from the subject's own id, a MusicBrainz id, or a
+//! title search.
 //!
 //! Two instance settings point the plugin at its service: `baseUrl`, which
 //! defaults to the public v1 JSON API, and `apiKey`, which defaults to the
@@ -39,13 +42,17 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-use hearthsound_plugin::metadata_provider::exports::hearthsound::plugin::lifecycle::Guest as LifecycleGuest;
-use hearthsound_plugin::metadata_provider::exports::hearthsound::plugin::metadata::{
+use hearthsound_plugin::metadata_artwork_provider::exports::hearthsound::plugin::artwork::{
+    ArtworkSubject, Guest as ArtworkGuest,
+};
+use hearthsound_plugin::metadata_artwork_provider::exports::hearthsound::plugin::lifecycle::Guest as LifecycleGuest;
+use hearthsound_plugin::metadata_artwork_provider::exports::hearthsound::plugin::metadata::{
     ArtistInfo, ArtistInfoRequest, Guest as MetadataGuest, RecordingHint, RecordingMatch,
 };
-use hearthsound_plugin::types::{Album, IdPair, ProviderError};
+use hearthsound_plugin::types::{Album, IdPair, Image, ProviderError};
 
 mod api;
+mod artwork;
 pub mod audiodb;
 pub mod map;
 mod metadata;
@@ -264,7 +271,40 @@ impl MetadataGuest for TheAudioDb {
     }
 }
 
-hearthsound_plugin::export_metadata_provider!(TheAudioDb);
+/// Implements the artwork interface.
+impl ArtworkGuest for TheAudioDb {
+    /// Finds an artist's portrait or an album's front cover.
+    ///
+    /// # Parameters
+    ///
+    /// - `subject`: the entity whose picture is wanted. An album subject is
+    ///   served, an artist subject is served, and any other kind is answered
+    ///   with an empty list.
+    ///
+    /// # Returns
+    ///
+    /// The picture the row carries, or an empty list when the service does not
+    /// know the subject or has no picture for it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the provider error of the request that failed.
+    fn find_artwork(subject: ArtworkSubject) -> Result<Vec<Image>, ProviderError> {
+        let found = artwork::find_artwork(&api()?, &subject)?;
+
+        hearthsound_plugin::debug!(
+            "find-artwork for a {:?} subject {:?} with {} ids found {} images",
+            subject.kind,
+            subject.title,
+            subject.ids.len(),
+            found.len()
+        );
+
+        Ok(found)
+    }
+}
+
+hearthsound_plugin::export_metadata_artwork_provider!(TheAudioDb);
 
 #[cfg(test)]
 mod tests {

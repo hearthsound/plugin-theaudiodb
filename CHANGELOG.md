@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directly, with a fallback to an exact-name artist search, and the profile
   carries the English biography and the homepage, Wikipedia, Wikidata, Last.fm,
   Discogs and AllMusic links the row holds.
+- The artwork interface: an artist's portrait from its TheAudioDB row and an
+  album's front cover from its release-group id or an artist-and-title search,
+  with a search hit accepted only when its title and credited artist match the
+  subject.
 - A CI workflow that formats, lints, tests, builds, checks and packs the
   plugin, and uploads the archive.
 
