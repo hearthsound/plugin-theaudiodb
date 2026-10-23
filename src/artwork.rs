@@ -338,7 +338,7 @@ mod tests {
 
         assert_eq!(
             urls(&images),
-            vec!["https://www.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg"]
+            vec!["https://r2.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg"]
         );
         assert_eq!(
             *api.calls.borrow(),
@@ -365,7 +365,7 @@ mod tests {
 
         assert_eq!(
             urls(&images),
-            vec!["https://www.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg"]
+            vec!["https://r2.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg"]
         );
         assert_eq!(
             *api.calls.borrow(),
@@ -433,7 +433,7 @@ mod tests {
 
         assert_eq!(
             urls(&images),
-            vec!["https://www.theaudiodb.com/images/media/album/thumb/xwvwvp1342551819.jpg"]
+            vec!["https://r2.theaudiodb.com/images/media/album/thumb/xwvwvp1342551819.jpg"]
         );
         assert_eq!(
             *api.calls.borrow(),
@@ -452,7 +452,7 @@ mod tests {
 
         assert_eq!(
             urls(&images),
-            vec!["https://www.theaudiodb.com/images/media/album/thumb/homework.jpg"]
+            vec!["https://r2.theaudiodb.com/images/media/album/thumb/homework.jpg"]
         );
         assert_eq!(
             *api.calls.borrow(),

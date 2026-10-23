@@ -80,11 +80,12 @@ allows.
   name instead. A search hit counts only when its primary or alternate name
   spells the requested name the same way, ignoring case and whitespace, so a
   namesake or a tribute act is never shown as the artist.
-- The biography is the English column. The links come from the row's reference
-  columns: `strWebsite` as `homepage`, `strWikipediaID` as `wikipedia`,
-  `strWikidataID` as `wikidata`, `strLastFMChart` as `lastfm`,
-  `strDiscogsID` as `discogs` and `strAllMusicID` as `allmusic`. Facebook and
-  Twitter have no matching link kind and are not reported.
+- The biography is the English column. The current API serves it in
+  `strBiography`; the plugin also reads the older `strBiographyEN` spelling
+  first, so it works against both. The links come from the row's profile
+  columns: `strWebsite` as `homepage` and `strLastFMChart` as `lastfm`.
+  Facebook and Twitter have no matching link kind and are not reported, and the
+  artist response carries no Wikipedia, Wikidata, Discogs or AllMusic column.
 - TheAudioDB is not a recording catalog: `resolve-recording` answers no matches
   and `get-release` answers not-found, so the server moves on to the next
   metadata instance in the layer order.

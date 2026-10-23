@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The biography is read from `strBiography`, the field the current API serves
+  the English text in, with the older `strBiographyEN` spelling still accepted
+  first. The link mapping no longer reads Wikipedia, Wikidata, Discogs or
+  AllMusic columns the artist response does not carry.
+
 ### Added
 
 - The repository scaffolding: the crate manifest, the toolchain pin, the dual

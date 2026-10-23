@@ -34,9 +34,12 @@ pub struct Artist {
     /// The MusicBrainz artist id.
     #[serde(default, rename = "strMusicBrainzID", deserialize_with = "text")]
     pub str_music_brainz_id: Option<String>,
-    /// The English biography.
+    /// The English biography in the legacy spelling of the field.
     #[serde(default, rename = "strBiographyEN", deserialize_with = "text")]
     pub str_biography_en: Option<String>,
+    /// The English biography in the field the current API serves it in.
+    #[serde(default, rename = "strBiography", deserialize_with = "text")]
+    pub str_biography: Option<String>,
     /// The artist's own website.
     #[serde(default, rename = "strWebsite", deserialize_with = "text")]
     pub str_website: Option<String>,
@@ -49,18 +52,6 @@ pub struct Artist {
     /// A Last.fm chart page for the artist.
     #[serde(default, rename = "strLastFMChart", deserialize_with = "text")]
     pub str_last_fm_chart: Option<String>,
-    /// The artist's Discogs id.
-    #[serde(default, rename = "strDiscogsID", deserialize_with = "text")]
-    pub str_discogs_id: Option<String>,
-    /// The artist's AllMusic id.
-    #[serde(default, rename = "strAllMusicID", deserialize_with = "text")]
-    pub str_all_music_id: Option<String>,
-    /// The artist's Wikipedia page title.
-    #[serde(default, rename = "strWikipediaID", deserialize_with = "text")]
-    pub str_wikipedia_id: Option<String>,
-    /// The artist's Wikidata id.
-    #[serde(default, rename = "strWikidataID", deserialize_with = "text")]
-    pub str_wikidata_id: Option<String>,
     /// The artist's portrait.
     #[serde(default, rename = "strArtistThumb", deserialize_with = "text")]
     pub str_artist_thumb: Option<String>,
@@ -105,11 +96,16 @@ impl Artist {
 
     /// Returns the English biography, trimmed, when the row carries one.
     ///
+    /// The current API serves the English text in `strBiography`; a legacy
+    /// response used `strBiographyEN`. The legacy field is read first, so a
+    /// service that still sends it wins, and the current field is the fallback.
+    ///
     /// # Returns
     ///
-    /// The biography, or `None` when it is absent or blank.
+    /// The biography, or `None` when both fields are absent or blank.
     pub fn biography(&self) -> Option<&str> {
         non_blank(self.str_biography_en.as_deref())
+            .or_else(|| non_blank(self.str_biography.as_deref()))
     }
 
     /// Returns the artist portrait URL, trimmed, when the row carries one.
@@ -296,7 +292,7 @@ mod tests {
         assert!(artist.biography().unwrap().starts_with("Coldplay are"));
         assert_eq!(
             artist.thumb(),
-            Some("https://www.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg")
+            Some("https://r2.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg")
         );
     }
 
@@ -311,13 +307,13 @@ mod tests {
     #[test]
     fn reads_numeric_identifiers_as_text() {
         let response: ArtistsResponse = serde_json::from_str(
-            r#"{"artists":[{"idArtist":555,"strArtist":"Numeric","strDiscogsID":42}]}"#,
+            r#"{"artists":[{"idArtist":555,"strArtist":"Numeric","strTwitter":1}]}"#,
         )
         .unwrap();
         let artists = response.into_artists();
 
         assert_eq!(artists[0].provider_id(), Some("555"));
-        assert_eq!(artists[0].str_discogs_id.as_deref(), Some("42"));
+        assert_eq!(artists[0].str_twitter.as_deref(), Some("1"));
     }
 
     #[test]
@@ -336,12 +332,33 @@ mod tests {
     #[test]
     fn blank_values_read_as_absent() {
         let response: ArtistsResponse =
-            serde_json::from_str(r#"{"artists":[{"strArtist":"   ","strWikipediaID":""}]}"#)
-                .unwrap();
+            serde_json::from_str(r#"{"artists":[{"strArtist":"   ","strBiography":""}]}"#).unwrap();
         let artists = response.into_artists();
 
         assert_eq!(artists[0].name(), None);
-        assert_eq!(artists[0].str_wikipedia_id.as_deref(), Some(""));
+        assert_eq!(artists[0].biography(), None);
+    }
+
+    #[test]
+    fn reads_the_biography_from_the_field_the_api_serves_it_in() {
+        let response: ArtistsResponse =
+            serde_json::from_str(r#"{"artists":[{"strBiography":"Coldplay are a band."}]}"#)
+                .unwrap();
+
+        assert_eq!(
+            response.into_artists()[0].biography(),
+            Some("Coldplay are a band.")
+        );
+    }
+
+    #[test]
+    fn prefers_the_legacy_biography_field_when_it_is_present() {
+        let response: ArtistsResponse = serde_json::from_str(
+            r#"{"artists":[{"strBiography":"Current","strBiographyEN":"Legacy"}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(response.into_artists()[0].biography(), Some("Legacy"));
     }
 
     #[test]
@@ -361,7 +378,7 @@ mod tests {
         );
         assert_eq!(
             album.thumb(),
-            Some("https://www.theaudiodb.com/images/media/album/thumb/xwvwvp1342551819.jpg")
+            Some("https://r2.theaudiodb.com/images/media/album/thumb/xwvwvp1342551819.jpg")
         );
     }
 

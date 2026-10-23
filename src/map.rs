@@ -2,20 +2,20 @@
 //!
 //! TheAudioDB keeps a handful of identifier and profile columns per artist and
 //! album. This module turns those columns into the `metadata` interface's
-//! [`ArtistInfo`], choosing a link kind from the shared WIT vocabulary
-//! (`homepage`, `wikipedia`, `wikidata`, `lastfm`, `discogs`, `allmusic`) and
-//! leaving out every value that is blank or cannot be turned into an absolute
-//! URL.
+//! [`ArtistInfo`] and the `artwork` interface's images, leaving out every value
+//! that is blank or cannot be turned into an absolute URL.
 //!
-//! Facebook and Twitter columns have no matching link kind, so they are not
-//! reported; the remaining social and reference columns are.
+//! The artist response carries a website and a Last.fm chart page, which the
+//! shared WIT vocabulary names `homepage` and `lastfm`. It also carries
+//! Facebook and Twitter columns, but the vocabulary has no kind for them, so
+//! they are not reported.
 
 use hearthsound_plugin::metadata_artwork_provider::exports::hearthsound::plugin::metadata::{
     ArtistInfo, ArtistLink,
 };
 use hearthsound_plugin::types::{IdPair, Image};
 
-use crate::{audiodb, url};
+use crate::audiodb;
 
 /// Id namespace of a MusicBrainz artist.
 pub const NS_ARTIST: &str = "mb-artist";
@@ -94,19 +94,18 @@ pub fn artist_info(artist: &audiodb::Artist) -> ArtistInfo {
 /// # Returns
 ///
 /// One link per non-blank profile column that maps to a link kind of the WIT
-/// vocabulary: `homepage` from `strWebsite`, `wikipedia` from `strWikipediaID`,
-/// `wikidata` from `strWikidataID`, `lastfm` from `strLastFMChart`, `discogs`
-/// from `strDiscogsID` and `allmusic` from `strAllMusicID`. A free-text URL
-/// without a scheme is given `https://`; an identifier that is already a URL
-/// is kept as it is. Facebook and Twitter columns are not reported because the
-/// vocabulary has no kind for them.
+/// vocabulary: `homepage` from `strWebsite` and `lastfm` from `strLastFMChart`.
+/// A free-text URL without a scheme is given `https://`. Facebook and Twitter
+/// columns are not reported because the vocabulary has no kind for them, and
+/// the artist response carries no Wikipedia, Wikidata, Discogs or AllMusic
+/// column.
 ///
 /// # Example
 ///
 /// ```text
-/// artist_links(&row_with_website_and_wikipedia)
+/// artist_links(&row_with_website_and_lastfm)
 ///   -> [ArtistLink { kind: "homepage", url: "https://www.coldplay.com" },
-///       ArtistLink { kind: "wikipedia", url: "https://en.wikipedia.org/wiki/Coldplay" }]
+///       ArtistLink { kind: "lastfm", url: "http://www.last.fm/music/Coldplay/+charts?rangetype=6month" }]
 /// ```
 pub fn artist_links(artist: &audiodb::Artist) -> Vec<ArtistLink> {
     let mut links = Vec::new();
@@ -118,40 +117,8 @@ pub fn artist_links(artist: &audiodb::Artist) -> Vec<ArtistLink> {
     );
     push_link(
         &mut links,
-        "wikipedia",
-        identifier_url(
-            "https://en.wikipedia.org/wiki/",
-            artist.str_wikipedia_id.as_deref(),
-        ),
-    );
-    push_link(
-        &mut links,
-        "wikidata",
-        identifier_url(
-            "https://www.wikidata.org/wiki/",
-            artist.str_wikidata_id.as_deref(),
-        ),
-    );
-    push_link(
-        &mut links,
         "lastfm",
         absolute_url(artist.str_last_fm_chart.as_deref()),
-    );
-    push_link(
-        &mut links,
-        "discogs",
-        identifier_url(
-            "https://www.discogs.com/artist/",
-            artist.str_discogs_id.as_deref(),
-        ),
-    );
-    push_link(
-        &mut links,
-        "allmusic",
-        identifier_url(
-            "https://www.allmusic.com/artist/",
-            artist.str_all_music_id.as_deref(),
-        ),
     );
 
     links
@@ -314,29 +281,6 @@ fn absolute_url(value: Option<&str>) -> Option<String> {
     Some(format!("https://{value}"))
 }
 
-/// Turns a reference identifier into an absolute URL.
-///
-/// # Parameters
-///
-/// - `prefix`: the site path the identifier belongs under.
-/// - `value`: the column value.
-///
-/// # Returns
-///
-/// The value unchanged when it is already a URL, the prefix followed by the
-/// percent-encoded identifier otherwise, and `None` when the value is blank.
-fn identifier_url(prefix: &str, value: Option<&str>) -> Option<String> {
-    let value = audiodb::non_blank(value)?;
-
-    if value.starts_with("http://") || value.starts_with("https://") {
-        return Some(value.to_string());
-    }
-
-    let path = value.replace(' ', "_");
-
-    Some(format!("{prefix}{}", url::encode_component(&path)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn maps_every_reference_link() {
+    fn maps_the_profile_links() {
         let links = artist_links(&coldplay());
         let pairs: Vec<(&str, &str)> = links
             .iter()
@@ -380,11 +324,10 @@ mod tests {
             pairs,
             vec![
                 ("homepage", "https://www.coldplay.com"),
-                ("wikipedia", "https://en.wikipedia.org/wiki/Coldplay"),
-                ("wikidata", "https://www.wikidata.org/wiki/Q1157"),
-                ("lastfm", "https://www.last.fm/music/Coldplay"),
-                ("discogs", "https://www.discogs.com/artist/121604"),
-                ("allmusic", "https://www.allmusic.com/artist/mn0000161140"),
+                (
+                    "lastfm",
+                    "http://www.last.fm/music/Coldplay/+charts?rangetype=6month"
+                ),
             ]
         );
     }
@@ -399,18 +342,6 @@ mod tests {
         };
 
         assert!(artist_links(&artist).is_empty());
-    }
-
-    #[test]
-    fn keeps_an_identifier_that_is_already_a_url() {
-        let artist = audiodb::Artist {
-            str_wikipedia_id: Some("https://en.wikipedia.org/wiki/Coldplay".to_string()),
-            ..audiodb::Artist::default()
-        };
-        let links = artist_links(&artist);
-
-        assert_eq!(links.len(), 1);
-        assert_eq!(links[0].url, "https://en.wikipedia.org/wiki/Coldplay");
     }
 
     #[test]
