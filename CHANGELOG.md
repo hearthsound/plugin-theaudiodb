@@ -7,12 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- The biography is read from `strBiography`, the field the current API serves
-  the English text in, with the older `strBiographyEN` spelling still accepted
-  first. The link mapping no longer reads Wikipedia, Wikidata, Discogs or
-  AllMusic columns the artist response does not carry.
+## [0.1.0] - 2026-10-23
 
 ### Added
 
@@ -32,4 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A CI workflow that formats, lints, tests, builds, checks and packs the
   plugin, and uploads the archive.
 
+### Fixed
+
+- The biography is read from `strBiography`, the field the current API serves
+  the English text in, with the older `strBiographyEN` spelling still accepted
+  first. The link mapping no longer reads Wikipedia, Wikidata, Discogs or
+  AllMusic columns the artist response does not carry.
+
 [Unreleased]: https://github.com/hearthsound/plugin-theaudiodb/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/hearthsound/plugin-theaudiodb/releases/tag/v0.1.0
