@@ -1,0 +1,254 @@
+//! Serde types for TheAudioDB's v1 JSON responses.
+//!
+//! TheAudioDB is a legacy database whose rows carry many fields and whose
+//! scalar values are sometimes strings and sometimes numbers. Only the fields
+//! the plugin reads are modelled, every one of them optional, and the
+//! identifiers are normalized to strings by [`text`] so a row deserializes
+//! whether the API sends `"111239"` or `111239`.
+//!
+//! A response wraps its rows in a property named after the entity, and an
+//! empty result is that property set to `null` rather than an empty array:
+//!
+//! ```text
+//! {"artists": [{"idArtist": "111239", ...}]}
+//! {"artists": null}
+//! ```
+//!
+//! Unknown properties are ignored, which keeps the plugin working as the
+//! legacy table gains columns.
+
+use serde::{Deserialize, Deserializer};
+
+/// One artist row.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Artist {
+    /// TheAudioDB's own artist id.
+    #[serde(default, rename = "idArtist", deserialize_with = "text")]
+    pub id_artist: Option<String>,
+    /// The artist's primary name.
+    #[serde(default, rename = "strArtist", deserialize_with = "text")]
+    pub str_artist: Option<String>,
+    /// Another name the artist is known by.
+    #[serde(default, rename = "strArtistAlternate", deserialize_with = "text")]
+    pub str_artist_alternate: Option<String>,
+    /// The MusicBrainz artist id.
+    #[serde(default, rename = "strMusicBrainzID", deserialize_with = "text")]
+    pub str_music_brainz_id: Option<String>,
+    /// The English biography.
+    #[serde(default, rename = "strBiographyEN", deserialize_with = "text")]
+    pub str_biography_en: Option<String>,
+    /// The artist's own website.
+    #[serde(default, rename = "strWebsite", deserialize_with = "text")]
+    pub str_website: Option<String>,
+    /// The artist's Facebook page.
+    #[serde(default, rename = "strFacebook", deserialize_with = "text")]
+    pub str_facebook: Option<String>,
+    /// The artist's Twitter account.
+    #[serde(default, rename = "strTwitter", deserialize_with = "text")]
+    pub str_twitter: Option<String>,
+    /// A Last.fm chart page for the artist.
+    #[serde(default, rename = "strLastFMChart", deserialize_with = "text")]
+    pub str_last_fm_chart: Option<String>,
+    /// The artist's Discogs id.
+    #[serde(default, rename = "strDiscogsID", deserialize_with = "text")]
+    pub str_discogs_id: Option<String>,
+    /// The artist's AllMusic id.
+    #[serde(default, rename = "strAllMusicID", deserialize_with = "text")]
+    pub str_all_music_id: Option<String>,
+    /// The artist's Wikipedia page title.
+    #[serde(default, rename = "strWikipediaID", deserialize_with = "text")]
+    pub str_wikipedia_id: Option<String>,
+    /// The artist's Wikidata id.
+    #[serde(default, rename = "strWikidataID", deserialize_with = "text")]
+    pub str_wikidata_id: Option<String>,
+    /// The artist's portrait.
+    #[serde(default, rename = "strArtistThumb", deserialize_with = "text")]
+    pub str_artist_thumb: Option<String>,
+}
+
+impl Artist {
+    /// Returns the TheAudioDB artist id, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The id, or `None` when it is absent or blank.
+    pub fn provider_id(&self) -> Option<&str> {
+        non_blank(self.id_artist.as_deref())
+    }
+
+    /// Returns the artist's primary name, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The name, or `None` when it is absent or blank.
+    pub fn name(&self) -> Option<&str> {
+        non_blank(self.str_artist.as_deref())
+    }
+
+    /// Returns the alternate artist name, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The alternate name, or `None` when it is absent or blank.
+    pub fn alternate_name(&self) -> Option<&str> {
+        non_blank(self.str_artist_alternate.as_deref())
+    }
+
+    /// Returns the MusicBrainz artist id, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The id, or `None` when it is absent or blank.
+    pub fn music_brainz_id(&self) -> Option<&str> {
+        non_blank(self.str_music_brainz_id.as_deref())
+    }
+
+    /// Returns the English biography, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The biography, or `None` when it is absent or blank.
+    pub fn biography(&self) -> Option<&str> {
+        non_blank(self.str_biography_en.as_deref())
+    }
+
+    /// Returns the artist portrait URL, trimmed, when the row carries one.
+    ///
+    /// # Returns
+    ///
+    /// The URL, or `None` when it is absent or blank.
+    pub fn thumb(&self) -> Option<&str> {
+        non_blank(self.str_artist_thumb.as_deref())
+    }
+}
+
+/// The response of every artist endpoint.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ArtistsResponse {
+    /// The matching artists, or `null` when the service knows none.
+    #[serde(default)]
+    pub artists: Option<Vec<Artist>>,
+}
+
+impl ArtistsResponse {
+    /// Returns the rows the response carries.
+    ///
+    /// # Returns
+    ///
+    /// The rows, or an empty list when the response carried `null`.
+    pub fn into_artists(self) -> Vec<Artist> {
+        self.artists.unwrap_or_default()
+    }
+}
+
+/// Deserializes a legacy scalar that may be a string, a number, or null.
+///
+/// # Parameters
+///
+/// - `deserializer`: the value to read.
+///
+/// # Returns
+///
+/// The value as a string, whichever of the two scalar shapes it has, or `None`
+/// for null.
+///
+/// # Errors
+///
+/// Returns the deserializer's error when the value is neither a scalar nor
+/// null (an object or an array, for example).
+fn text<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+
+    Ok(value.and_then(|value| match value {
+        serde_json::Value::String(text) => Some(text),
+        serde_json::Value::Number(number) => Some(number.to_string()),
+        serde_json::Value::Bool(flag) => Some(flag.to_string()),
+        _ => None,
+    }))
+}
+
+/// Returns a trimmed string, or `None` when it is absent or blank.
+///
+/// # Parameters
+///
+/// - `value`: the value as the response carried it.
+///
+/// # Returns
+///
+/// The trimmed value, or `None`.
+pub(crate) fn non_blank(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_an_artist_lookup() {
+        let response: ArtistsResponse =
+            serde_json::from_str(include_str!("fixtures/artist_mb.json")).unwrap();
+        let artists = response.into_artists();
+
+        assert_eq!(artists.len(), 1);
+        let artist = &artists[0];
+        assert_eq!(artist.provider_id(), Some("111239"));
+        assert_eq!(artist.name(), Some("Coldplay"));
+        assert_eq!(
+            artist.music_brainz_id(),
+            Some("cc197bad-dc9c-440d-a5b5-d52ba2e14234")
+        );
+        assert!(artist.biography().unwrap().starts_with("Coldplay are"));
+        assert_eq!(
+            artist.thumb(),
+            Some("https://www.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg")
+        );
+    }
+
+    #[test]
+    fn reads_an_empty_artist_response() {
+        let response: ArtistsResponse =
+            serde_json::from_str(include_str!("fixtures/artist_none.json")).unwrap();
+
+        assert!(response.into_artists().is_empty());
+    }
+
+    #[test]
+    fn reads_numeric_identifiers_as_text() {
+        let response: ArtistsResponse = serde_json::from_str(
+            r#"{"artists":[{"idArtist":555,"strArtist":"Numeric","strDiscogsID":42}]}"#,
+        )
+        .unwrap();
+        let artists = response.into_artists();
+
+        assert_eq!(artists[0].provider_id(), Some("555"));
+        assert_eq!(artists[0].str_discogs_id.as_deref(), Some("42"));
+    }
+
+    #[test]
+    fn ignores_unknown_properties_and_missing_ones() {
+        let response: ArtistsResponse = serde_json::from_str(
+            r#"{"artists":[{"strArtist":"Minimal","strStyle":"Rock/Pop","intFormedYear":1996}]}"#,
+        )
+        .unwrap();
+        let artists = response.into_artists();
+
+        assert_eq!(artists[0].name(), Some("Minimal"));
+        assert_eq!(artists[0].provider_id(), None);
+        assert_eq!(artists[0].biography(), None);
+    }
+
+    #[test]
+    fn blank_values_read_as_absent() {
+        let response: ArtistsResponse =
+            serde_json::from_str(r#"{"artists":[{"strArtist":"   ","strWikipediaID":""}]}"#)
+                .unwrap();
+        let artists = response.into_artists();
+
+        assert_eq!(artists[0].name(), None);
+        assert_eq!(artists[0].str_wikipedia_id.as_deref(), Some(""));
+    }
+}

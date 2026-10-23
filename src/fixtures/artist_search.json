@@ -1,0 +1,20 @@
+{
+  "artists": [
+    {
+      "idArtist": "111239",
+      "strArtist": "Coldplay",
+      "strArtistAlternate": "Coldplay",
+      "strMusicBrainzID": "cc197bad-dc9c-440d-a5b5-d52ba2e14234",
+      "strBiographyEN": "Coldplay are a British rock band formed in London in 1997.",
+      "strArtistThumb": "https://www.theaudiodb.com/images/media/artist/thumb/uxrqxy1347913147.jpg"
+    },
+    {
+      "idArtist": "112999",
+      "strArtist": "Coldplay Tribute Band",
+      "strArtistAlternate": null,
+      "strMusicBrainzID": null,
+      "strBiographyEN": "A tribute act.",
+      "strArtistThumb": null
+    }
+  ]
+}

@@ -1,0 +1,357 @@
+//! Conversion of TheAudioDB rows into provider records.
+//!
+//! TheAudioDB keeps a handful of identifier and profile columns per artist and
+//! album. This module turns those columns into the `metadata` interface's
+//! [`ArtistInfo`], choosing a link kind from the shared WIT vocabulary
+//! (`homepage`, `wikipedia`, `wikidata`, `lastfm`, `discogs`, `allmusic`) and
+//! leaving out every value that is blank or cannot be turned into an absolute
+//! URL.
+//!
+//! Facebook and Twitter columns have no matching link kind, so they are not
+//! reported; the remaining social and reference columns are.
+
+use hearthsound_plugin::metadata_provider::exports::hearthsound::plugin::metadata::{
+    ArtistInfo, ArtistLink,
+};
+use hearthsound_plugin::types::IdPair;
+
+use crate::{audiodb, url};
+
+/// Id namespace of a MusicBrainz artist.
+pub const NS_ARTIST: &str = "mb-artist";
+
+/// Id namespace of a TheAudioDB artist.
+pub const NS_AUDIODB: &str = "theaudiodb";
+
+/// Returns an id pair in one namespace.
+///
+/// # Parameters
+///
+/// - `namespace`: the namespace of the identifier.
+/// - `value`: the identifier itself.
+///
+/// # Returns
+///
+/// The pair, ready to append to a record's `ids`.
+///
+/// # Example
+///
+/// ```text
+/// id_pair(NS_ARTIST, "cc197bad-dc9c-440d-a5b5-d52ba2e14234")
+///   -> IdPair { namespace: "mb-artist", value: "cc197bad-dc9c-440d-a5b5-d52ba2e14234" }
+/// ```
+pub fn id_pair(namespace: &str, value: &str) -> IdPair {
+    IdPair {
+        namespace: namespace.to_string(),
+        value: value.to_string(),
+    }
+}
+
+/// Converts an artist row into the profile the metadata interface returns.
+///
+/// # Parameters
+///
+/// - `artist`: the artist row.
+///
+/// # Returns
+///
+/// The artist's identifiers (`mb-artist` when the row carries one, then the
+/// TheAudioDB id), the English biography when it is present and non-blank, and
+/// the web links [`artist_links`] builds from the row's profile columns.
+///
+/// # Example
+///
+/// ```text
+/// artist_info(&coldplay_row)
+///   -> ArtistInfo { ids: [("mb-artist", "cc197bad-..."), ("theaudiodb", "111239")], biography: Some("Coldplay are ..."), links: [...] }
+/// ```
+pub fn artist_info(artist: &audiodb::Artist) -> ArtistInfo {
+    let mut ids = Vec::with_capacity(2);
+
+    if let Some(mbid) = artist.music_brainz_id() {
+        ids.push(id_pair(NS_ARTIST, mbid));
+    }
+    if let Some(id) = artist.provider_id() {
+        ids.push(id_pair(NS_AUDIODB, id));
+    }
+
+    ArtistInfo {
+        ids,
+        biography: artist.biography().map(str::to_string),
+        links: artist_links(artist),
+    }
+}
+
+/// Builds the web links of an artist row.
+///
+/// # Parameters
+///
+/// - `artist`: the artist row.
+///
+/// # Returns
+///
+/// One link per non-blank profile column that maps to a link kind of the WIT
+/// vocabulary: `homepage` from `strWebsite`, `wikipedia` from `strWikipediaID`,
+/// `wikidata` from `strWikidataID`, `lastfm` from `strLastFMChart`, `discogs`
+/// from `strDiscogsID` and `allmusic` from `strAllMusicID`. A free-text URL
+/// without a scheme is given `https://`; an identifier that is already a URL
+/// is kept as it is. Facebook and Twitter columns are not reported because the
+/// vocabulary has no kind for them.
+///
+/// # Example
+///
+/// ```text
+/// artist_links(&row_with_website_and_wikipedia)
+///   -> [ArtistLink { kind: "homepage", url: "https://www.coldplay.com" },
+///       ArtistLink { kind: "wikipedia", url: "https://en.wikipedia.org/wiki/Coldplay" }]
+/// ```
+pub fn artist_links(artist: &audiodb::Artist) -> Vec<ArtistLink> {
+    let mut links = Vec::new();
+
+    push_link(
+        &mut links,
+        "homepage",
+        absolute_url(artist.str_website.as_deref()),
+    );
+    push_link(
+        &mut links,
+        "wikipedia",
+        identifier_url(
+            "https://en.wikipedia.org/wiki/",
+            artist.str_wikipedia_id.as_deref(),
+        ),
+    );
+    push_link(
+        &mut links,
+        "wikidata",
+        identifier_url(
+            "https://www.wikidata.org/wiki/",
+            artist.str_wikidata_id.as_deref(),
+        ),
+    );
+    push_link(
+        &mut links,
+        "lastfm",
+        absolute_url(artist.str_last_fm_chart.as_deref()),
+    );
+    push_link(
+        &mut links,
+        "discogs",
+        identifier_url(
+            "https://www.discogs.com/artist/",
+            artist.str_discogs_id.as_deref(),
+        ),
+    );
+    push_link(
+        &mut links,
+        "allmusic",
+        identifier_url(
+            "https://www.allmusic.com/artist/",
+            artist.str_all_music_id.as_deref(),
+        ),
+    );
+
+    links
+}
+
+/// Returns whether two names spell the same text.
+///
+/// Comparison ignores case and any difference in the amount or width of
+/// whitespace, so `"The  Weeknd"` and `"the weeknd"` are the same name.
+///
+/// # Parameters
+///
+/// - `left`: the first name.
+/// - `right`: the second name.
+///
+/// # Returns
+///
+/// `true` when the folded names are equal.
+///
+/// # Example
+///
+/// ```text
+/// same_text("Coldplay", "coldplay") -> true
+/// same_text("Coldplay", "Coldplay Tribute Band") -> false
+/// ```
+pub fn same_text(left: &str, right: &str) -> bool {
+    normalize(left) == normalize(right)
+}
+
+/// Folds a name for comparison: lower case, whitespace runs collapsed.
+///
+/// # Parameters
+///
+/// - `value`: the name to fold.
+///
+/// # Returns
+///
+/// The folded name, without leading or trailing whitespace.
+fn normalize(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Appends a link when the value exists.
+///
+/// # Parameters
+///
+/// - `links`: the list to append to.
+/// - `kind`: the link kind.
+/// - `value`: the URL, or `None` when the row carried no usable value.
+fn push_link(links: &mut Vec<ArtistLink>, kind: &str, value: Option<String>) {
+    if let Some(url) = value {
+        links.push(ArtistLink {
+            kind: kind.to_string(),
+            url,
+        });
+    }
+}
+
+/// Turns a free-text profile URL into an absolute URL.
+///
+/// # Parameters
+///
+/// - `value`: the column value.
+///
+/// # Returns
+///
+/// The URL unchanged when it carries an `http` or `https` scheme, the same
+/// URL with `https://` in front when it is a bare host, and `None` when the
+/// value is blank or is not host-like (TheAudioDB stores a bare flag such as
+/// `1` in some of these columns).
+fn absolute_url(value: Option<&str>) -> Option<String> {
+    let value = audiodb::non_blank(value)?;
+
+    if value.starts_with("http://") || value.starts_with("https://") {
+        return Some(value.to_string());
+    }
+
+    if !value.contains('.') {
+        return None;
+    }
+
+    Some(format!("https://{value}"))
+}
+
+/// Turns a reference identifier into an absolute URL.
+///
+/// # Parameters
+///
+/// - `prefix`: the site path the identifier belongs under.
+/// - `value`: the column value.
+///
+/// # Returns
+///
+/// The value unchanged when it is already a URL, the prefix followed by the
+/// percent-encoded identifier otherwise, and `None` when the value is blank.
+fn identifier_url(prefix: &str, value: Option<&str>) -> Option<String> {
+    let value = audiodb::non_blank(value)?;
+
+    if value.starts_with("http://") || value.starts_with("https://") {
+        return Some(value.to_string());
+    }
+
+    let path = value.replace(' ', "_");
+
+    Some(format!("{prefix}{}", url::encode_component(&path)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn coldplay() -> audiodb::Artist {
+        let response: audiodb::ArtistsResponse =
+            serde_json::from_str(include_str!("fixtures/artist_mb.json")).unwrap();
+
+        response.into_artists().remove(0)
+    }
+
+    #[test]
+    fn maps_biography_and_identifiers() {
+        let info = artist_info(&coldplay());
+
+        let pairs: Vec<(&str, &str)> = info
+            .ids
+            .iter()
+            .map(|pair| (pair.namespace.as_str(), pair.value.as_str()))
+            .collect();
+
+        assert_eq!(
+            pairs,
+            vec![
+                (NS_ARTIST, "cc197bad-dc9c-440d-a5b5-d52ba2e14234"),
+                (NS_AUDIODB, "111239"),
+            ]
+        );
+        assert!(info.biography.unwrap().starts_with("Coldplay are"));
+    }
+
+    #[test]
+    fn maps_every_reference_link() {
+        let links = artist_links(&coldplay());
+        let pairs: Vec<(&str, &str)> = links
+            .iter()
+            .map(|link| (link.kind.as_str(), link.url.as_str()))
+            .collect();
+
+        assert_eq!(
+            pairs,
+            vec![
+                ("homepage", "https://www.coldplay.com"),
+                ("wikipedia", "https://en.wikipedia.org/wiki/Coldplay"),
+                ("wikidata", "https://www.wikidata.org/wiki/Q1157"),
+                ("lastfm", "https://www.last.fm/music/Coldplay"),
+                ("discogs", "https://www.discogs.com/artist/121604"),
+                ("allmusic", "https://www.allmusic.com/artist/mn0000161140"),
+            ]
+        );
+    }
+
+    #[test]
+    fn omits_blank_and_flag_like_values() {
+        let artist = audiodb::Artist {
+            str_website: Some("1".to_string()),
+            str_facebook: Some("www.facebook.com/somebody".to_string()),
+            str_twitter: Some("1".to_string()),
+            ..audiodb::Artist::default()
+        };
+
+        assert!(artist_links(&artist).is_empty());
+    }
+
+    #[test]
+    fn keeps_an_identifier_that_is_already_a_url() {
+        let artist = audiodb::Artist {
+            str_wikipedia_id: Some("https://en.wikipedia.org/wiki/Coldplay".to_string()),
+            ..audiodb::Artist::default()
+        };
+        let links = artist_links(&artist);
+
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].url, "https://en.wikipedia.org/wiki/Coldplay");
+    }
+
+    #[test]
+    fn compares_names_ignoring_case_and_whitespace() {
+        assert!(same_text("Coldplay", "coldplay"));
+        assert!(same_text("The  Weeknd", " the weeknd "));
+        assert!(!same_text("Coldplay", "Coldplay Tribute Band"));
+    }
+
+    #[test]
+    fn an_artist_without_identifiers_maps_to_no_ids() {
+        let artist = audiodb::Artist {
+            str_artist: Some("Anon".to_string()),
+            ..audiodb::Artist::default()
+        };
+        let info = artist_info(&artist);
+
+        assert!(info.ids.is_empty());
+        assert_eq!(info.biography, None);
+    }
+}
