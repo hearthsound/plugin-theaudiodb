@@ -2,12 +2,12 @@
   "manifestVersion": 1,
   "id": "app.hearthsound.theaudiodb",
   "name": "TheAudioDB metadata and artwork",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Read artist biographies, reference links, artist portraits and album covers from TheAudioDB, without an account or a paid API key.",
   "authors": ["Hearthsound contributors"],
   "license": "MIT OR Apache-2.0",
   "homepage": "https://github.com/hearthsound/plugin-theaudiodb",
-  "api": "hearthsound:plugin@0.3.0",
+  "api": "hearthsound:plugin@0.4.0",
   "provides": ["metadata", "artwork"],
   "permissions": {
     "http": {
@@ -24,7 +24,8 @@
           "apiKey": {
             "type": "string",
             "title": "TheAudioDB API key",
-            "description": "API key sent in the URL path. The public test key 123 works for evaluation; a premium key raises the rate limit and unlocks the full result set.",
+            "description": "API key sent in the URL path. The plugin sends at most one request per second, up to 60 in a minute; TheAudioDB's free tier allows 30 a minute, so a free key can answer 429 during a burst, and a premium key raises the service limit. The public test key 123 works for evaluation.",
+            "writeOnly": true,
             "default": "123"
           },
           "baseUrl": {

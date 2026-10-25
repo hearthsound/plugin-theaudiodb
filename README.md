@@ -29,7 +29,7 @@ The component lands at
 Install the plugin CLI from the SDK repository:
 
 ```console
-cargo install --locked --git https://github.com/hearthsound/plugin-sdk --tag v0.3.0 hearthsound-plugin-cli
+cargo install --locked --git https://github.com/hearthsound/plugin-sdk --tag v0.4.0 hearthsound-plugin-cli
 ```
 
 Then validate the manifest and the component:
@@ -38,7 +38,7 @@ Then validate the manifest and the component:
 hsplugin check
 ```
 
-It prints `ok: app.hearthsound.theaudiodb 0.1.0 (provides metadata, artwork)`
+It prints `ok: app.hearthsound.theaudiodb 0.2.0 (provides metadata, artwork)`
 on success.
 
 Finally, build the archive you install on a server:
@@ -47,7 +47,7 @@ Finally, build the archive you install on a server:
 hsplugin pack --out-dir dist
 ```
 
-`dist/app.hearthsound.theaudiodb-0.1.0.hsplugin` contains the manifest and the
+`dist/app.hearthsound.theaudiodb-0.2.0.hsplugin` contains the manifest and the
 component.
 
 ## Tests
@@ -64,12 +64,13 @@ cargo test
 
 | Instance setting | Default | Meaning |
 |---|---|---|
-| `apiKey` | `123` | TheAudioDB API key, sent as a path segment. The public test key works for evaluation; a premium key raises the rate limit and returns more search results. |
+| `apiKey` | `123` | TheAudioDB API key, sent as a path segment, and `writeOnly`: the server seals it at rest and shows `[sealed]` on every read. The public test key works for evaluation; a premium key raises the service limit and returns more search results. |
 | `baseUrl` | `https://www.theaudiodb.com/api/v1/json/` | Base URL of the v1 JSON API. Point it at a mirror or a test double to keep traffic off theaudiodb.com. |
 
 The instance requests a `host-http` rate limit of one request per second with a
-burst of one, which stays inside the 30 requests per minute the free key
-allows.
+burst of one: at most 60 requests a minute. TheAudioDB's free tier allows 30 a
+minute, so a free key can answer `429` during a burst; a premium key raises the
+service limit.
 
 ## Notes
 

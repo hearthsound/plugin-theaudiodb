@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-25
+
+### Security
+
+- `apiKey` is declared `writeOnly`, so the host seals it at rest and returns
+  `[sealed]` on every read (AGENTS.md invariant 10).
+
+### Changed
+
+- Build against the `hearthsound:plugin@0.4.0` API (plugin-sdk v0.4.0).
+- The manifest and the docs state the host limiter (1 request per second)
+  instead of claiming it fits TheAudioDB's 30 requests/minute free tier.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added
@@ -34,5 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first. The link mapping no longer reads Wikipedia, Wikidata, Discogs or
   AllMusic columns the artist response does not carry.
 
-[Unreleased]: https://github.com/hearthsound/plugin-theaudiodb/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/hearthsound/plugin-theaudiodb/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hearthsound/plugin-theaudiodb/releases/tag/v0.2.0
 [0.1.0]: https://github.com/hearthsound/plugin-theaudiodb/releases/tag/v0.1.0
